@@ -68,6 +68,11 @@ endif
 
 
 
+function! UseSemanticIndentation()
+  return !&expandtab && (&indentexpr || &cindent || &lisp || &autoindent)
+endfunction
+
+
 " Get the indentation width for the current line. The width here is the number
 " of 'space blocks' that should appear at the start of the line. This relies on
 " VIM's built-in automatic indentation features.
@@ -101,8 +106,8 @@ endfunction
 function! IndentationForLine(line_number)
   " Don't do anything if tabs are expanded to spaces or if no automatic
   " indentation feature is on.
-  if &expandtab || !(&indentexpr || &cindent || &lisp || &autoindent)
-    return [0, 0, 0]
+  if !UseSemanticIndentation()
+    return [0, 0]
   endif
 
   " Find out how many tabs and how many spaces we need.
@@ -125,7 +130,7 @@ function! IndentationForLine(line_number)
   let l:indent_tabs = l:indent_width / g:sem_tabs_internal_step
   let l:indent_spaces = l:indent_width % g:sem_tabs_internal_step
 
-  return [1, l:indent_tabs, l:indent_spaces]
+  return [l:indent_tabs, l:indent_spaces]
 endfunction
 
 
@@ -149,56 +154,12 @@ endfunction
 " Reindent the specified line.
 " After this function, the cursor may be left in a wrong position on the line.
 function! ReindentLine(line_number)
-  let [l:valid, l:indent_tabs, l:indent_spaces] = IndentationForLine(a:line_number)
-  if l:valid
+  let [l:indent_tabs, l:indent_spaces] = IndentationForLine(a:line_number)
+  if UseSemanticIndentation()
     call setline(a:line_number, substitute(getline(a:line_number), '^\s*', IndentationString(l:indent_tabs, l:indent_spaces), ''))
   endif
-  return [l:valid, l:indent_tabs, l:indent_spaces]
+  return [l:indent_tabs, l:indent_spaces]
 endfunction
-
-
-" The cursor should not appear to move on the screen when this function is run.
-" Handle tab insertion.
-function! InsertTab()
-  let l:current_line = getline('.')
-
-  let l:start_string = strpart(l:current_line, 0, col('.') - 1)
-  let l:current_column = virtcol('.')
-
-  " Handle situations where the cursor is at the start of the line.
-  if  l:start_string =~ '^\s*$'
-    let [l:valid, l:indent_tabs, l:indent_spaces] = IndentationForLine(line('.'))
-    if l:valid && l:current_column < l:indent_tabs * &tabstop + l:indent_spaces
-      if g:sem_tabs_one_tab_indent
-        call ReindentLine(line('.'))
-        call MoveCursorAfterIndentation(line('.'), l:indent_tabs, + l:indent_spaces)
-        return ''
-      else
-        return "\<Tab>"
-      endif
-    endif
-  endif
-
-  if g:sem_tabs_tab_space_jump
-    " If there is whitespace after the cursor, move the cursor to the end of this
-    " whitespace sequence.
-    let l:cursor_position = getpos('.')
-    let l:first_non_s_after_cursor = match(l:current_line, '\S', l:cursor_position[2])
-    let l:end_column = virtcol('$') - 1
-    if l:current_column < l:end_column  && l:cursor_position[2] != l:first_non_s_after_cursor
-      let l:cursor_position[2] = l:first_non_s_after_cursor + 1
-      call setpos('.', l:cursor_position)
-      return ''
-    endif
-  endif
-
-  return repeat(" ", &tabstop - l:current_column % &tabstop)
-endfunction
-
-
-" Override keys and commands that interact with indentation.
-
-" TODO: Do we need to use `noremap`?
 
 
 function! NormalCommandAndReindent(normal_command)
@@ -234,9 +195,48 @@ endfunction
 inoremap <silent> <CR> <CR>_<C-o>:call DoNewLineHelper()<CR><BS>
 
 
+" The cursor should not appear to move on the screen when this function is run.
+" Handle tab insertion.
+function! InsertTab()
+  let l:current_line = getline('.')
+
+  let l:start_string = strpart(l:current_line, 0, col('.') - 1)
+  let l:current_column = virtcol('.')
+
+  " Handle situations where the cursor is at the start of the line.
+  if  l:start_string =~ '^\s*$'
+    let [l:indent_tabs, l:indent_spaces] = IndentationForLine(line('.'))
+    if UseSemanticIndentation() && l:current_column < l:indent_tabs * &tabstop + l:indent_spaces
+      if g:sem_tabs_one_tab_indent
+        call ReindentLine(line('.'))
+        call MoveCursorAfterIndentation(line('.'), l:indent_tabs, + l:indent_spaces)
+        return ''
+      else
+        return "\<Tab>"
+      endif
+    endif
+  endif
+
+  if g:sem_tabs_tab_space_jump
+    " If there is whitespace after the cursor, move the cursor to the end of this
+    " whitespace sequence.
+    let l:cursor_position = getpos('.')
+    let l:first_non_s_after_cursor = match(l:current_line, '\S', l:cursor_position[2])
+    let l:end_column = virtcol('$') - 1
+    if l:current_column < l:end_column  && l:cursor_position[2] != l:first_non_s_after_cursor
+      let l:cursor_position[2] = l:first_non_s_after_cursor + 1
+      call setpos('.', l:cursor_position)
+      return ''
+    endif
+  endif
+
+  return repeat(" ", &tabstop - l:current_column % &tabstop)
+endfunction
+
 function! TabHelper()
   return "\<C-r>=InsertTab()\<CR>"
 endfunction
+
 inoremap <silent> <expr> <Tab> TabHelper()
 
 
@@ -252,14 +252,14 @@ function! AlignmentOperator(type,...)
 
   " Set the cursor to the same position the original '=' operator would set it
   " to.
-  let [l:valid, l:indent_tabs, l:indent_spaces] = IndentationForLine(l:line_from)
-  if l:valid
+  let [l:indent_tabs, l:indent_spaces] = IndentationForLine(l:line_from)
+  if UseSemanticIndentation()
     call MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
   endif
 endfunction
 
 function! AlignmentOperatorSingleLine()
-  let [l:valid, l:indent_tabs, l:indent_spaces] = ReindentLine(line('.'))
+  let [l:indent_tabs, l:indent_spaces] = ReindentLine(line('.'))
   call MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
 endfunction
 
