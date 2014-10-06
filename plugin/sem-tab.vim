@@ -250,9 +250,9 @@ function! AlignmentOperator(type,...)
 
   " Set the cursor to the same position the original '=' operator would set it
   " to.
-  let [l:valid, l:u1, l:u2] = IndentationForLine(l:line_from)
+  let [l:valid, l:indent_tabs, l:indent_spaces] = IndentationForLine(l:line_from)
   if l:valid
-    call setpos('.', l:aligned_cursor_pos)
+    call MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
   endif
 endfunction
 
