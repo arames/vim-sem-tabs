@@ -43,7 +43,9 @@ let g:loaded_sem_tabs = 1
 
 " When set (by default), this causes the plugin to delete trailing whitespaces
 " on the current line when pressing 'Enter'.
-let g:sem_tabs_delete_whitespace_on_newline = 1
+if !exists("g:sem_tabs_delete_whitespace_on_newline")
+  let g:sem_tabs_delete_whitespace_on_newline = 1
+endif
 
 " When set and the cursor is positionned in some initial whitespace at the start
 " of a line, hitting <Tab> inserts the full correct indentation for the line.
@@ -160,7 +162,7 @@ endfunction
 function! InsertTab()
   let l:current_line = getline('.')
 
-  let l:start_string = strpart(l:current_line, 0, col('.'))
+  let l:start_string = strpart(l:current_line, 0, col('.') - 1)
   let l:current_column = virtcol('.')
 
   " Handle situations where the cursor is at the start of the line.
