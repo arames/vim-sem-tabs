@@ -245,6 +245,11 @@ function! AlignmentOperator(type,...)
   let l:line = l:line_from
   let l:line_to = line("']")
 
+  if !UseSemanticIndentation()
+    normal! '[=']
+    return
+  endif
+
   while l:line <= l:line_to
     call ReindentLine(l:line)
     let l:line += 1
@@ -259,6 +264,11 @@ function! AlignmentOperator(type,...)
 endfunction
 
 function! AlignmentOperatorSingleLine()
+  if !UseSemanticIndentation()
+    normal! ==
+    return
+  endif
+
   let [l:indent_tabs, l:indent_spaces] = ReindentLine(line('.'))
   call MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
 endfunction
