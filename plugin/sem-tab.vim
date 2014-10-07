@@ -240,15 +240,24 @@ endfunction
 inoremap <silent> <expr> <Tab> TabHelper()
 
 
-function! AlignmentOperator(type,...)
-  let l:line_from = line("'[")
-  let l:line = l:line_from
-  let l:line_to = line("']")
-
+function! AlignmentOperator(type, ...)
   if !UseSemanticIndentation()
-    normal! '[=']
+    if a:0   " Invoked from visual mode.
+      normal! '<='>
+    else
+      normal! '[=']
+    endif
     return
   endif
+
+  if a:0   " Invoked from visual mode.
+    let l:line_from = line("'<")
+    let l:line_to = line("'>")
+  else
+    let l:line_from = line("'[")
+    let l:line_to = line("']")
+  endif
+  let l:line = l:line_from
 
   while l:line <= l:line_to
     call ReindentLine(l:line)
