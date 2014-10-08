@@ -173,8 +173,17 @@ nnoremap <silent> O :call <SID>NormalCommandAndReindent('O')<CR>a
 
 
 function s:DoNewLineHelper()
+  " TODO: Ideally we would like to know about the position before the newline was
+  " inserted. Otherwise the cursor appears to move if it is early in the line
+  " and tabs are inserted by the normal indentation.
   let l:saved_pos = getpos('.')
   let l:saved_virt_column = virtcol('.')
+  if l:saved_virt_column < virtcol('$') - 1
+    let l:saved_virt_column -= 1
+    normal! hx
+  else
+    normal! x
+  endif
 
   " Perform the reindentation
   call s:ReindentLine(line('.'))
@@ -192,7 +201,9 @@ function s:DoNewLineHelper()
     let l:col += 1
   endwhile
 endfunction
-inoremap <silent> <CR> <CR>_<C-o>:call <SID>DoNewLineHelper()<CR><BS>
+" The added '_' ensures we don't lose automatic comment formatting.
+" The trailing ' <BS>' ensures that 'undo' works.
+inoremap <silent> <CR> <CR>_<C-o>:call <SID>DoNewLineHelper()<CR> <BS>
 
 
 " The cursor should not appear to move on the screen when this function is run.
