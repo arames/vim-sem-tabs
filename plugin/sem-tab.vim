@@ -68,7 +68,7 @@ endif
 
 
 
-function! UseSemanticIndentation()
+function s:UseSemanticIndentation()
   return !&expandtab && (&indentexpr || &cindent || &lisp || &autoindent)
 endfunction
 
@@ -76,7 +76,7 @@ endfunction
 " Get the indentation width for the current line. The width here is the number
 " of 'space blocks' that should appear at the start of the line. This relies on
 " VIM's built-in automatic indentation features.
-function! GetLineAutoIndentWidth(line_number)
+function s:GetLineAutoIndentWidth(line_number)
   if &indentexpr != ''
     let v:lnum = a:line_number
     sandbox exe 'let indent_width = ' . &indentexpr
@@ -103,10 +103,10 @@ endfunction
 "   the number of tabs at the beginning of the indentation string.
 " - indent_spaces: The number of spaces required for alignment. This number of
 "   spaces is present at the end of the indentation string.
-function! IndentationForLine(line_number)
+function s:IndentationForLine(line_number)
   " Don't do anything if tabs are expanded to spaces or if no automatic
   " indentation feature is on.
-  if !UseSemanticIndentation()
+  if !s:UseSemanticIndentation()
     return [0, 0]
   endif
 
@@ -119,7 +119,7 @@ function! IndentationForLine(line_number)
   try
     let &tabstop=g:sem_tabs_internal_step
     let &shiftwidth=g:sem_tabs_internal_step
-    let l:indent_width = GetLineAutoIndentWidth(a:line_number)
+    let l:indent_width = s:GetLineAutoIndentWidth(a:line_number)
 
   finally
     " Make sure to restore the user settings.
@@ -135,17 +135,17 @@ endfunction
 
 
 " Build a string for the specified indentation.
-function! IndentationString(indent_tabs, indent_spaces)
+function s:IndentationString(indent_tabs, indent_spaces)
   return repeat("\<Tab>", a:indent_tabs) . repeat(' ', a:indent_spaces)
 endfunction
 
 
-function! MoveCursorAfterIndentation(line_number, indent_tabs, indent_spaces)
+function s:MoveCursorAfterIndentation(line_number, indent_tabs, indent_spaces)
   call setpos('.', [0, a:line_number, a:indent_tabs + a:indent_spaces + 1, 0])
 endfunction
 
 
-function! DeleteTrailingWhitespaces(line_number)
+function s:DeleteTrailingWhitespaces(line_number)
   let l:text = getline(a:line_number)
   call setline(a:line_number, substitute(getline(a:line_number), "\\s*$", "", "e"))
 endfunction
@@ -153,33 +153,33 @@ endfunction
 
 " Reindent the specified line.
 " After this function, the cursor may be left in a wrong position on the line.
-function! ReindentLine(line_number)
-  let [l:indent_tabs, l:indent_spaces] = IndentationForLine(a:line_number)
-  if UseSemanticIndentation()
-    call setline(a:line_number, substitute(getline(a:line_number), '^\s*', IndentationString(l:indent_tabs, l:indent_spaces), ''))
+function s:ReindentLine(line_number)
+  let [l:indent_tabs, l:indent_spaces] = s:IndentationForLine(a:line_number)
+  if s:UseSemanticIndentation()
+    call setline(a:line_number, substitute(getline(a:line_number), '^\s*', s:IndentationString(l:indent_tabs, l:indent_spaces), ''))
   endif
   return [l:indent_tabs, l:indent_spaces]
 endfunction
 
 
-function! NormalCommandAndReindent(normal_command)
+function s:NormalCommandAndReindent(normal_command)
   " We append a '_' to preserve any special alignment introduced.
   execute "normal! " . a:normal_command . "_"
-  call ReindentLine(line('.'))
+  call s:ReindentLine(line('.'))
   normal! $x
 endfunction
-nnoremap <silent> o :call NormalCommandAndReindent('o')<CR>a
-nnoremap <silent> O :call NormalCommandAndReindent('O')<CR>a
+nnoremap <silent> o :call <SID>NormalCommandAndReindent('o')<CR>a
+nnoremap <silent> O :call <SID>NormalCommandAndReindent('O')<CR>a
 
 
-function! DoNewLineHelper()
+function s:DoNewLineHelper()
   let l:saved_pos = getpos('.')
   let l:saved_virt_column = virtcol('.')
 
   " Perform the reindentation
-  call ReindentLine(line('.'))
+  call s:ReindentLine(line('.'))
   if g:sem_tabs_delete_whitespace_on_newline != 0
-    call DeleteTrailingWhitespaces(line('.') - 1)
+    call s:DeleteTrailingWhitespaces(line('.') - 1)
   endif
 
   " Now set the cursor to the right position.
@@ -192,12 +192,12 @@ function! DoNewLineHelper()
     let l:col += 1
   endwhile
 endfunction
-inoremap <silent> <CR> <CR>_<C-o>:call DoNewLineHelper()<CR><BS>
+inoremap <silent> <CR> <CR>_<C-o>:call <SID>DoNewLineHelper()<CR><BS>
 
 
 " The cursor should not appear to move on the screen when this function is run.
 " Handle tab insertion.
-function! InsertTab()
+function s:InsertTab()
   let l:current_line = getline('.')
 
   let l:start_string = strpart(l:current_line, 0, col('.') - 1)
@@ -205,11 +205,11 @@ function! InsertTab()
 
   " Handle situations where the cursor is at the start of the line.
   if  l:start_string =~ '^\s*$'
-    let [l:indent_tabs, l:indent_spaces] = IndentationForLine(line('.'))
-    if UseSemanticIndentation() && l:current_column < l:indent_tabs * &tabstop + l:indent_spaces
+    let [l:indent_tabs, l:indent_spaces] = s:IndentationForLine(line('.'))
+    if s:UseSemanticIndentation() && l:current_column < l:indent_tabs * &tabstop + l:indent_spaces
       if g:sem_tabs_one_tab_indent
-        call ReindentLine(line('.'))
-        call MoveCursorAfterIndentation(line('.'), l:indent_tabs, + l:indent_spaces)
+        call s:ReindentLine(line('.'))
+        call s:MoveCursorAfterIndentation(line('.'), l:indent_tabs, + l:indent_spaces)
         return ''
       else
         return "\<Tab>"
@@ -233,15 +233,20 @@ function! InsertTab()
   return repeat(" ", &tabstop - l:current_column % &tabstop)
 endfunction
 
-function! TabHelper()
-  return "\<C-r>=InsertTab()\<CR>"
+" See `:help <SNR>`.
+function s:SID()
+  return matchstr(expand('<sfile>'), '<SNR>\zs\d\+\ze_SID$')
+endfun
+
+function s:TabHelper()
+  return "\<C-r>=<SNR>" . s:SID() . "_InsertTab()\<CR>"
 endfunction
 
-inoremap <silent> <expr> <Tab> TabHelper()
+inoremap <silent> <expr> <Tab> <SID>TabHelper()
 
 
-function! AlignmentOperator(type, ...)
-  if !UseSemanticIndentation()
+function s:AlignmentOperator(type, ...)
+  if !s:UseSemanticIndentation()
     if a:0   " Invoked from visual mode.
       normal! '<='>
     else
@@ -260,44 +265,44 @@ function! AlignmentOperator(type, ...)
   let l:line = l:line_from
 
   while l:line <= l:line_to
-    call ReindentLine(l:line)
+    call s:ReindentLine(l:line)
     let l:line += 1
   endwhile
 
   " Set the cursor to the same position the original '=' operator would set it
   " to.
-  let [l:indent_tabs, l:indent_spaces] = IndentationForLine(l:line_from)
-  if UseSemanticIndentation()
-    call MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
+  let [l:indent_tabs, l:indent_spaces] = s:IndentationForLine(l:line_from)
+  if s:UseSemanticIndentation()
+    call s:MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
   endif
 endfunction
 
-function! AlignmentOperatorSingleLine()
-  if !UseSemanticIndentation()
+function s:AlignmentOperatorSingleLine()
+  if !s:UseSemanticIndentation()
     normal! ==
     return
   endif
 
-  let [l:indent_tabs, l:indent_spaces] = ReindentLine(line('.'))
-  call MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
+  let [l:indent_tabs, l:indent_spaces] = s:ReindentLine(line('.'))
+  call s:MoveCursorAfterIndentation(line('.'), l:indent_tabs, l:indent_spaces)
 endfunction
 
-nnoremap <silent> = :set operatorfunc=AlignmentOperator<CR>g@
-vnoremap <silent> = :<C-U>call AlignmentOperator(visualmode(), 1)<CR>
-nnoremap <silent> == :call AlignmentOperatorSingleLine()<CR>
+nnoremap <silent> = :set operatorfunc=<SID>AlignmentOperator<CR>g@
+vnoremap <silent> = :<C-U>call <SID>AlignmentOperator(visualmode(), 1)<CR>
+nnoremap <silent> == :call <SID>AlignmentOperatorSingleLine()<CR>
 
 " Automatically delete unused indentation left on a line when exiting insert
 " mode.
-function! DeleteTrailingWhitespaceIfOption(line_number)
+function s:DeleteTrailingWhitespaceIfOption(line_number)
   " Delete the unused indentation if the settings require it.
   " Note that we do that even if we did not introduce the spaces.
   if ('cpo' !~ 'I')
-    call DeleteTrailingWhitespaces(a:line_number)
+    call s:DeleteTrailingWhitespaces(a:line_number)
   endif
 endfunction
 
 augroup SemTabDeleteUnusedIndentation
-  au! InsertLeave * call DeleteTrailingWhitespaceIfOption(line('.'))
+  au! InsertLeave * call s:DeleteTrailingWhitespaceIfOption(line('.'))
 augroup END
 
 
