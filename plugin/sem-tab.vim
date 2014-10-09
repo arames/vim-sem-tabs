@@ -176,6 +176,12 @@ function s:DoNewLineHelper()
   " TODO: Ideally we would like to know about the position before the newline was
   " inserted. Otherwise the cursor appears to move if it is early in the line
   " and tabs are inserted by the normal indentation.
+
+  " TODO: Preserve the copy register after the 'x' normal commands.
+
+  " TODO: This is still broken. For example the indentation is not removed
+  " after a closing bracket is inserted.
+
   let l:saved_pos = getpos('.')
   let l:saved_virt_column = virtcol('.')
   if l:saved_virt_column < virtcol('$') - 1
