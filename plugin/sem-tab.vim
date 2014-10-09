@@ -41,6 +41,13 @@ endif
 let g:loaded_sem_tabs = 1
 
 
+echom "********************************************************************"
+echom "WARNING: The vim-sem-tabs plugin newline insertion support is buggy."
+echom "Sleeping 3 seconds before continuing."
+echom "********************************************************************"
+sleep 3
+
+
 " When set (by default), this causes the plugin to delete trailing whitespaces
 " on the current line when pressing 'Enter'.
 if !exists("g:sem_tabs_delete_whitespace_on_newline")
